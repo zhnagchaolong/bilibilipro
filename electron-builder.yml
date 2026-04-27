@@ -1,0 +1,25 @@
+appId: com.zcl.biliassistant.pro
+productName: Bilibili PRO # 这是生成的快捷方式名称和安装包名称
+directories:
+  buildResources: build # 指定资源目录 (确保你的真实情况与此对应，一般默认是 build)
+
+asarUnpack:
+  - '**/node_modules/ffmpeg-static/**/*'
+
+win:
+  target: nsis
+  icon: build/logo.ico # 🌟 强行指定 Windows 程序的原始图标
+
+# 🌟 NSIS 传统安装器极客配置
+nsis:
+  oneClick: false # 禁用一键静默安装
+  allowToChangeInstallationDirectory: true # 🌟 允许用户在步骤中自定义安装路径
+  perMachine: true # 推荐 true：提示需要管理员权限，并默认装到 C:\Program Files\
+  createDesktopShortcut: true # 确保创建桌面快捷方式
+  createStartMenuShortcut: true # 确保创建开始菜单快捷方式
+  shortcutName: Bilibili PRO # 桌面快捷方式字面名称
+
+  # 进一步指定安装向导的细部图标，防止漏网之鱼：
+  installerIcon: build/logo.ico # 安装包本身的图标
+  uninstallerIcon: build/logo.ico # 卸载程序的图标
+  installerHeaderIcon: build/logo.ico # 安装执行页面左上角的角标

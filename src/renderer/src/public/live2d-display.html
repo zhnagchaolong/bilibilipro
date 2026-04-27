@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live2d Display</title>
+    <style>
+      /* 1. 根节点样式：透明背景，全屏填充 */
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        position: relative;
+        /* 🚀 核心修复 1：铺设 1% 透明度的底色。
+         人的肉眼完全看不见，但系统级的渲染引擎会认为这里有“实体”，
+         从而把整个 250x350 窗口连通起来，不会再发生鼠标滑动途中的断层掉签！ */
+        background-color: transparent;
+      }
+
+      /* 2. 画布层样式 */
+      canvas {
+        background-color: transparent !important;
+        outline: none;
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 1;
+        /* 明确告诉系统：点这个模型是网页点击，不是拖动窗口 */
+        -webkit-app-region: no-drag;
+      }
+
+      .drag-toolbar {
+        position: absolute;
+        bottom: 40px; /* 移到模型下方，不遮挡模型 */
+        left: 50%;
+        transform: translateX(-50%);
+
+        background: rgba(0, 0, 0, 0.35);
+        -webkit-backdrop-filter: blur(4px);
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+
+        padding: 4px 10px;
+        border-radius: 12px;
+        color: #fff;
+        font-size: 11px;
+        font-weight: normal;
+        font-family: sans-serif;
+        letter-spacing: 0.5px;
+
+        opacity: 0;
+        transition: opacity 0.4s ease-out 0.5s;
+
+        z-index: 99999;
+        -webkit-app-region: drag;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+
+      /* 当鼠标移入整个窗口包裹体时 */
+      body:hover .drag-toolbar {
+        opacity: 1;
+        /* 🚀 鼠标移入时立刻显示，没有延迟 */
+        transition: opacity 0.2s ease-in 0s;
+      }
+
+      /* 保护 Live2D 画布的点击事件不被吞灭 */
+      canvas {
+        -webkit-app-region: no-drag;
+      }
+
+      /* 隐藏可能出现的滚动条 */
+      ::-webkit-scrollbar {
+        display: none;
+      }
+
+      /* 3. 界面菜单按钮样式 */
+      .ui-controls {
+        position: absolute;
+        top: 8px;
+        left: 8px; /* 左上角但更小 */
+        z-index: 10;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        -webkit-app-region: no-drag;
+      }
+
+      /* 鼠标移入窗口时显示菜单 */
+      body:hover .ui-controls {
+        opacity: 1;
+      }
+
+      .selectCharacter {
+        padding: 3px 6px;
+        border-radius: 6px;
+        background: rgba(0, 0, 0, 0.5);
+        color: #fff;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        outline: none;
+        font-size: 11px;
+        cursor: pointer;
+      }
+
+      .selectCharacter option {
+        background: #333;
+      }
+
+      /* ==========================================
+       🌟 新增：AI 气泡与输入框样式 
+       ========================================== */
+      #chat-bubble {
+        position: absolute;
+        top: 8px; /* 移到最顶部 */
+        right: 8px; /* 靠右 */
+        left: auto; /* 取消左对齐 */
+        width: 180px; /* 固定宽度 */
+        max-width: 180px;
+        background: rgba(255, 255, 255, 0.85);
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(0, 174, 236, 0.4);
+        border-radius: 12px;
+        padding: 10px 14px;
+        font-size: 13px;
+        color: #333;
+        display: none;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        z-index: 100;
+        word-break: break-all;
+        line-height: 1.5;
+        font-weight: 500;
+        -webkit-app-region: no-drag;
+        pointer-events: none;
+      }
+
+      #chat-bubble::after {
+        content: '';
+        position: absolute;
+        bottom: -6px;
+        left: 24px;
+        width: 10px;
+        height: 10px;
+        background: rgba(255, 255, 255, 0.85);
+        border-right: 1px solid rgba(0, 174, 236, 0.4);
+        border-bottom: 1px solid rgba(0, 174, 236, 0.4);
+        transform: rotate(45deg);
+      }
+
+      #input-container {
+        position: absolute;
+        bottom: 8px; /* 紧贴底部，避免遮挡模型 */
+        left: 50%;
+        transform: translateX(-50%) translateY(10px);
+        width: 220px;
+        display: flex;
+        z-index: 100;
+        opacity: 0;
+        transition: all 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+        -webkit-app-region: no-drag;
+      }
+
+      body:hover #input-container {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+
+      #ai-input {
+        flex: 1;
+        border-radius: 16px;
+        border: 1px solid rgba(0, 174, 236, 0.3);
+        padding: 6px 12px;
+        outline: none;
+        background: rgba(255, 255, 255, 0.85);
+        -webkit-backdrop-filter: blur(4px);
+        backdrop-filter: blur(4px);
+        font-size: 11px;
+        color: #333;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        transition: all 0.2s;
+      }
+
+      #ai-input:focus {
+        border-color: #00aeec;
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 4px 12px rgba(0, 174, 236, 0.15);
+      }
+
+      #ai-input:disabled {
+        background: #f0f0f0;
+        color: #999;
+        cursor: not-allowed;
+      }
+    </style>
+
+    <script src="./live2d/js/jquery.min.js"></script>
+  </head>
+  <body>
+    <div class="ui-controls">
+      <select class="selectCharacter" aria-label="选择模型/服装"></select>
+    </div>
+
+    <div id="chat-bubble">主人有什么吩咐喵？</div>
+
+    <div class="Canvas left"></div>
+
+    <div class="drag-toolbar">✥ 拖动位移</div>
+
+    <div id="input-container">
+      <input
+        type="text"
+        id="ai-input"
+        placeholder="和看板娘聊聊吧 (回车发送)..."
+        autocomplete="off"
+      />
+    </div>
+
+    <script src="./live2d/js/live2dcubismcore.min.js"></script>
+    <script src="./live2d/js/pixi.min.js"></script>
+    <script src="./live2d/js/live2dcubismframework.js"></script>
+    <script src="./live2d/js/live2dcubismpixi.js"></script>
+    <script src="./live2d/js/l2d.js"></script>
+
+    <script>
+      const charData = {
+        // ==== 第一批 ====
+        '爱宕 (换装2)': 'Azue Lane(JP)/aidang_2',
+        '埃尔德里奇 (换装4)': 'Azue Lane(JP)/aierdeliqi_4',
+        '埃尔德里奇 (换装5)': 'Azue Lane(JP)/aierdeliqi_5',
+        '埃米尔·贝尔汀 (换装2)': 'Azue Lane(JP)/aimierbeierding_2',
+        '半人马 (换装2)': 'Azue Lane(JP)/banrenma_2',
+        '贝尔法斯特 (换装2)': 'Azue Lane(JP)/beierfasite_2',
+        '标枪 (默认)': 'Azue Lane(JP)/biaoqiang',
+        '标枪 (换装3)': 'Azue Lane(JP)/biaoqiang_3',
+        '俾斯麦 (换装2)': 'Azue Lane(JP)/bisimai_2',
+        '吹雪 (换装3)': 'Azue Lane(JP)/chuixue_3',
+        '大凤 (换装2)': 'Azue Lane(JP)/dafeng_2',
+        '德意志 (换装3)': 'Azue Lane(JP)/deyizhi_3',
+        '独角兽 (换装4)': 'Azue Lane(JP)/dujiaoshou_4',
+        '敦刻尔克 (换装2)': 'Azue Lane(JP)/dunkeerke_2',
+        '格奈森瑙 (换装2)': 'Azue Lane(JP)/genaisennao_2',
+        '黑太子 (换装2)': 'Azue Lane(JP)/heitaizi_2',
+        '皇家方舟 (换装3)': 'Azue Lane(JP)/huangjiafangzhou_3',
+        '火奴鲁鲁 (换装3)': 'Azue Lane(JP)/huonululu_3',
+        '火奴鲁鲁 (换装5)': 'Azue Lane(JP)/huonululu_5',
+        '克利夫兰 (换装3)': 'Azue Lane(JP)/kelifulan_3',
+        '拉菲 (默认)': 'Azue Lane(JP)/lafei',
+        '拉菲 (换装4)': 'Azue Lane(JP)/lafei_4',
+        '绫波 (默认)': 'Azue Lane(JP)/lingbo',
+        '明石 (默认)': 'Azue Lane(JP)/mingshi',
+
+        // ==== 第二批 ====
+        '宁海 (换装4)': 'Azue Lane(JP)/ninghai_4',
+        '平海 (换装4)': 'Azue Lane(JP)/pinghai_4',
+        '齐柏林伯爵 (换装2)': 'Azue Lane(JP)/qibolin_2',
+        '圣路易斯 (换装2)': 'Azue Lane(JP)/shengluyisi_2',
+        '圣路易斯 (换装3)': 'Azue Lane(JP)/shengluyisi_3',
+        '斯佩伯爵 (换装5)': 'Azue Lane(JP)/sipeibojue_5',
+        '太原 (换装2)': 'Azue Lane(JP)/taiyuan_2',
+        '天狼星 (换装3)': 'Azue Lane(JP)/tianlangxing_3',
+        '提尔比茨 (换装2)': 'Azue Lane(JP)/tierbici_2',
+        '翔鹤 (换装2)': 'Azue Lane(JP)/xianghe_2',
+        '吸血鬼 (换装4)': 'Azue Lane(JP)/xixuegui_4',
+        '雪风 (默认)': 'Azue Lane(JP)/xuefeng',
+        '伊吹 (换装2)': 'Azue Lane(JP)/yichui_2',
+        'Z23 (默认)': 'Azue Lane(JP)/z23',
+        'Z46 (换装2)': 'Azue Lane(JP)/z46_2',
+        '扎拉 (换装2)': 'Azue Lane(JP)/zhala_2'
+      }
+
+      // 设置下拉框默认显示的看板娘
+      const defaultModelDisplayName = '拉菲 (默认)'
+    </script>
+
+    <script src="./live2d/js/main.js"></script>
+
+    <script>
+      // ==========================================
+      // 🌟 全局鼠标追踪监听器 (终极破解版：直写底层参数)
+      // ==========================================
+      let globalMouseData = null // 用于存储最新的全局鼠标数据
+
+      if (window.api && typeof window.api.onGlobalCursor === 'function') {
+        console.log('✅ 全局鼠标监听器已注册。采用【底层参数强行注入】模式！')
+
+        window.api.onGlobalCursor((data) => {
+          globalMouseData = data
+
+          const { mouseX, mouseY, winX, winY, winWidth, winHeight } = data
+
+          // 1. 获取 main.js 中的全局对象 v
+          const viewerObj = window.v || (typeof v !== 'undefined' ? v : null)
+
+          // 2. 只有当立绘(model)真正加载到内存时，才进行动作覆盖
+          if (viewerObj && viewerObj.model) {
+            // 计算当前鼠标和屏幕上模型小窗中心的像素距离
+            const winCenterX = winX + winWidth / 2
+            const winCenterY = winY + winHeight / 2
+
+            const deltaX = mouseX - winCenterX
+            const deltaY = mouseY - winCenterY
+
+            // 3. 把距离换算成 -1.0 到 1.0 的转头刻度（除以数字就是目光敏感度，500px表示鼠标离她500像素时头转到底）
+            const pointX = Math.max(-1, Math.min(1, deltaX / 500))
+            const pointY = Math.max(-1, Math.min(1, deltaY / 400))
+
+            // 4. 【核心破解】绕过原版要求“按住鼠标”才转头的智障设定！
+            // 强行写入内部坐标，并持久化开启 inDrag（追踪）状态
+            viewerObj.model.pointerX = pointX
+            viewerObj.model.pointerY = pointY
+            viewerObj.model.inDrag = true
+          }
+        })
+      }
+
+      // ==========================================
+      // 🌟 文档加载完毕后，初始化所有功能
+      // ==========================================
+      $(document).ready(function () {
+        const waitForViewer = (callback) => {
+          const interval = setInterval(() => {
+            const viewerObj = window.v || window.viewer || (typeof v !== 'undefined' ? v : null)
+            if (viewerObj && viewerObj.l2d) {
+              clearInterval(interval)
+              callback(viewerObj)
+            }
+          }, 50)
+        }
+
+        const initializeLive2D = (viewerObj) => {
+          // ==========================================
+          // 1. 模型加载与切换 (保持不变)
+          // ==========================================
+          const savedModelName =
+            localStorage.getItem('bili-live2d-model') || defaultModelDisplayName
+          const $selector = $('.selectCharacter')
+          if ($selector.length > 0) {
+            $selector.empty()
+            for (const name in charData) {
+              const isSelected = name === savedModelName ? 'selected' : ''
+              $selector.append(`<option value="${charData[name]}" ${isSelected}>${name}</option>`)
+            }
+            $selector.on('change', function () {
+              const selectedPath = $(this).val()
+              const selectedName = $(this).find('option:selected').text()
+              localStorage.setItem('bili-live2d-model', selectedName)
+              if (viewerObj.l2d && typeof viewerObj.l2d.load === 'function') {
+                viewerObj.l2d.load(selectedPath, viewerObj)
+              }
+            })
+            const targetPath = charData[savedModelName] || charData[defaultModelDisplayName]
+            viewerObj.l2d.load(targetPath, viewerObj)
+          }
+
+          // ==========================================
+          // 2. AI 气泡与脑电波接口 (保持不变)
+          // ==========================================
+          const bubble = document.getElementById('chat-bubble')
+          const input = document.getElementById('ai-input')
+          let bubbleTimer = null
+
+          function showBubble(text, duration = 6000) {
+            bubble.innerText = text
+            bubble.style.display = 'block'
+            if (bubbleTimer) clearTimeout(bubbleTimer)
+            if (duration > 0) {
+              bubbleTimer = setTimeout(() => {
+                bubble.style.display = 'none'
+              }, duration)
+            }
+          }
+
+          if (input) {
+            input.addEventListener('keypress', async (e) => {
+              if (e.key === 'Enter' && input.value.trim()) {
+                const question = input.value.trim()
+                input.value = ''
+                input.disabled = true
+                showBubble('............', 0)
+                try {
+                  const result = await window.api.assistantAsk(question)
+                  if (result.success) {
+                    showBubble(result.content, 8000)
+                    if (viewerObj.l2d && typeof viewerObj.l2d.startRandomMotion === 'function') {
+                      viewerObj.l2d.startRandomMotion('TapBody', 3)
+                    }
+                  } else {
+                    showBubble('连接失败了喵: ' + result.content, 4000)
+                  }
+                } catch (err) {
+                  showBubble('网络大风暴！脑电波断开了喵...', 4000)
+                } finally {
+                  input.disabled = false
+                  input.focus()
+                }
+              }
+            })
+          }
+
+          if (window.api && window.api.onVibe) {
+            window.api.onVibe((data) => {
+              if (data && data.content) {
+                showBubble(data.content, 10000)
+                if (viewerObj.l2d) {
+                  viewerObj.l2d.startRandomMotion('TapBody', 3)
+                }
+              }
+            })
+          }
+
+          // ==========================================
+          // 3. 区域行为感知与主动互动系统 (全新整合)
+          // ==========================================
+          let areaZone = 'unknown'
+          let areaHoverTime = 0
+
+          // 🌟 优化：区域分析计时器从2000ms改为3000ms，进一步降低CPU占用
+          // 💥 窗口不可见时暂停，减少后台CPU占用
+          let areaIntervalId = null
+          function startAreaMonitor() {
+            if (areaIntervalId) return
+            areaIntervalId = setInterval(() => {
+              if (!globalMouseData) return
+
+              const { mouseX, screenWidth, mouseY, screenHeight } = globalMouseData
+              let currentZone = 'video'
+
+              if (mouseY > screenHeight * 0.85) {
+                currentZone = 'progressbar'
+              } else if (mouseX > screenWidth * 0.75) {
+                currentZone = 'comments'
+              }
+
+              if (currentZone !== areaZone) {
+                areaZone = currentZone
+                areaHoverTime = 0
+              } else {
+                areaHoverTime++
+              }
+
+              // 触发情景对话（阈值相应调整）
+              if (areaZone === 'comments' && areaHoverTime === 4) {
+                // 停留约12秒
+                showBubble('主人在看弹幕吗？有什么有趣的槽点，我们一起吐槽喵！', 5000)
+                if (viewerObj.l2d) viewerObj.l2d.startRandomMotion('TapBody', 3)
+                areaHoverTime = 0
+              }
+
+              if (areaZone === 'progressbar' && areaHoverTime === 3) {
+                // 停留约9秒
+                showBubble('是在找最精彩的高能片段吗？', 4000)
+                areaHoverTime = 0
+              }
+            }, 3000)
+          }
+          function stopAreaMonitor() {
+            if (areaIntervalId) {
+              clearInterval(areaIntervalId)
+              areaIntervalId = null
+            }
+          }
+          startAreaMonitor()
+          document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+              stopAreaMonitor()
+            } else {
+              startAreaMonitor()
+            }
+          })
+
+          // ==========================================
+          // 4. 生命感反馈系统 (保持不变)
+          // ==========================================
+          setTimeout(() => {
+            showBubble('主人，欢迎回来喵！今天想聊点什么呢？', 5000)
+          }, 1500)
+
+          let idleTimer = null
+          const resetIdleTimer = () => {
+            clearTimeout(idleTimer)
+            idleTimer = setTimeout(() => {
+              const idleTexts = [
+                '主人在忙吗？陪我聊聊天嘛~',
+                '一直盯着屏幕看眼睛会累的噢！',
+                '（发呆中......）',
+                '喵呜... 好无聊呀，戳戳我也行呀...'
+              ]
+              const text = idleTexts[Math.floor(Math.random() * idleTexts.length)]
+              showBubble(text, 5000)
+              if (viewerObj.l2d) viewerObj.l2d.startRandomMotion('TapBody', 3)
+              resetIdleTimer()
+            }, 60000) // 🌟 优化：从45秒改为60秒，减少触发频率
+          }
+          // 🌟 优化：移除mousemove监听，只保留keydown，减少事件处理开销
+          $(document).on('keydown', resetIdleTimer)
+          resetIdleTimer()
+
+          let isMotionPlaying = false
+          const canvasElement = document.querySelector('canvas')
+          if (canvasElement) {
+            canvasElement.addEventListener(
+              'mousedown',
+              function (e) {
+                if (e.target.closest('.ui-controls, #ai-input, .drag-toolbar')) return
+                if (isMotionPlaying) return
+                isMotionPlaying = true
+
+                if (viewerObj.l2d) viewerObj.l2d.startRandomMotion('TapBody', 3)
+                const tapTexts = [
+                  '哎呀！',
+                  '痒痒的喵~',
+                  '摸摸头~ 嘿嘿...',
+                  '呜哇...被袭击了！',
+                  '有什么吩咐吗主人？'
+                ]
+                showBubble(tapTexts[Math.floor(Math.random() * tapTexts.length)], 3000)
+                setTimeout(() => {
+                  isMotionPlaying = false
+                }, 3000)
+              },
+              false
+            )
+          }
+        }
+
+        // 启动并注入生命
+        waitForViewer(initializeLive2D)
+      })
+    </script>
+  </body>
+</html>
