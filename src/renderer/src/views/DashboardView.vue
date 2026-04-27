@@ -423,11 +423,11 @@ const {
                   <div class="up-stats">
                     <span class="up-stat-item">👥 {{ formatNum(upDeepStats.fans) }} 粉丝</span>
                     <span class="up-stat-item"
-                      >👍 {{ formatNum(upDeepStats.totalLikes) }} 获赞</span
+                      >👍 {{ formatNum(upDeepStats.totalUpLikes || upDeepStats.totalLikes) }} 累计获赞</span
                     >
-                    <span class="up-stat-item">🎬 {{ upDeepStats.videoCount }} 视频</span>
+                    <span class="up-stat-item">🎬 {{ upDeepStats.archiveCount || upDeepStats.videoCount }} 全部投稿</span>
                   </div>
-                  <div class="up-hint">📊 以下分析基于最近 {{ upDeepStats.videoCount }} 个投稿视频</div>
+                  <div class="up-hint">📊 以下深度分析基于最近 {{ upDeepStats.videoCount }} 个投稿视频</div>
                 </div>
               </div>
             </div>

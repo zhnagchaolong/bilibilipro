@@ -486,6 +486,7 @@ export function setupDashboardIpc(): void {
               data?: {
                 archive?: { view?: number }
                 article?: { view?: number }
+                likes?: number
               }
             }
 
@@ -712,7 +713,8 @@ export function setupDashboardIpc(): void {
               fans: follower,
               following,
               likes: (analysis.totalLikes as number) || cardRes.data?.like_num || 0,
-              archiveCount: analysis.videoCount || videos.length,
+              totalUpLikes: upstatRes.data?.likes ?? 0,
+              archiveCount: archiveCountFromCard,
               archiveViews,
               articleViews,
               isVip: card.vip?.vipStatus === 1,
@@ -1249,6 +1251,8 @@ function buildFallbackUpAnalysis(cardData: unknown, uid?: string): Record<string
 
     series: [],
     trendCurve: [],
+    trendLikes: [],
+    trendCoins: [],
 
     // 兼容前端基础卡片
     likes: cardWrap?.like_num || 0,
@@ -1325,11 +1329,9 @@ function analyzeUpData(
     else durationRanges.extraLong++
   })
 
-  // 5. 爆款识别 (播放量 > 平均播放量2倍 或 > 10万)
-  const avgViews = totalViews / videos.length
-  const hotThreshold = Math.max(avgViews * 2, 100000)
+  // 5. 爆款识别 (取播放量最高的5个)
   const hotVideos = videos
-    .filter((v) => v.stat?.view >= hotThreshold)
+    .slice()
     .sort((a, b) => (b.stat?.view || 0) - (a.stat?.view || 0))
     .slice(0, 5)
     .map((v) => ({
@@ -1440,10 +1442,9 @@ function analyzeUpData(
     series,
 
     // 数据曲线 (用于图表)
-    trendCurve: videos
-      .slice(0, 20)
-      .map((v) => v.stat?.view || 0)
-      .reverse()
+    trendCurve: videos.slice(0, 20).map((v) => v.stat?.view || 0).reverse(),
+    trendLikes: videos.slice(0, 20).map((v) => v.stat?.like || 0).reverse(),
+    trendCoins: videos.slice(0, 20).map((v) => v.stat?.coin || 0).reverse()
   }
 }
 

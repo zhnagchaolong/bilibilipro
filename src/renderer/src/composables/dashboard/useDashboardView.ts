@@ -12,6 +12,8 @@ export interface UpDeepAnalysis {
   sign?: string // 签名
   fans: number
   totalLikes: number
+  totalUpLikes?: number
+  archiveCount?: number
   videoCount: number
   averages: {
     views: number
@@ -52,6 +54,8 @@ export interface UpDeepAnalysis {
   }
   series: Array<{ name: string; count: number; videos: string[] }>
   trendCurve: number[]
+  trendLikes: number[]
+  trendCoins: number[]
   aiAnalysis?: {
     summary: string
     strengths: string[]
@@ -265,6 +269,7 @@ export function useDashboardView() {
       following: 0,
       archiveCount: 0,
       latestVideoCount: 0,
+      totalUpLikes: 0,
       isVip: false,
       verifyDesc: '',
       verifyType: -1,
@@ -308,6 +313,7 @@ export function useDashboardView() {
         following: 0,
         archiveCount: 0,
         latestVideoCount: 0,
+        totalUpLikes: 0,
         isVip: false,
         verifyDesc: '',
         verifyType: -1,
@@ -492,6 +498,7 @@ export function useDashboardView() {
         following: (d.following as number) ?? 0,
         archiveCount: (d.archiveCount as number) ?? 0,
         latestVideoCount: (d.latestVideoCount as number) ?? 0,
+        totalUpLikes: (d.totalUpLikes as number) ?? 0,
         isVip: !!d.isVip,
         verifyDesc: (d.verifyDesc as string) || '',
         verifyType: (d.verifyType as number) ?? -1,
@@ -712,46 +719,59 @@ export function useDashboardView() {
 
     let dat = stats.value.personal.curve
     let nS = '个人整体估算热度值'
+    let seriesCfg: any[] = []
+    let xData = ['数日前', '较早点', '节点一', '三天前', '近两日', '现阶段']
 
-    // 🌟 修复：UP主深度分析使用真实趋势数据
+    // 🌟 UP主深度分析使用真实趋势数据（多系列）
     if (activeTab.value === 'up' && upDeepStats.value) {
-      dat =
-        upDeepStats.value.trendCurve.length > 1
-          ? upDeepStats.value.trendCurve
-          : stats.value.up.curve
-      nS = 'UP主近期播放量趋势'
+      const hasTrend = upDeepStats.value.trendCurve.length > 1
+      if (hasTrend) {
+        xData = upDeepStats.value.trendCurve.map((_, i) => `${i + 1}`)
+        seriesCfg = [
+          {
+            name: '播放量',
+            type: 'line',
+            smooth: 0.4,
+            symbolSize: 4,
+            itemStyle: { color: '#00aeee' },
+            lineStyle: { width: 2 },
+            data: upDeepStats.value.trendCurve
+          },
+          {
+            name: '点赞',
+            type: 'line',
+            smooth: 0.4,
+            symbolSize: 4,
+            itemStyle: { color: '#fb7299' },
+            lineStyle: { width: 2 },
+            data: upDeepStats.value.trendLikes
+          },
+          {
+            name: '投币',
+            type: 'line',
+            smooth: 0.4,
+            symbolSize: 4,
+            itemStyle: { color: '#f3a034' },
+            lineStyle: { width: 2 },
+            data: upDeepStats.value.trendCoins
+          }
+        ]
+      } else {
+        dat = stats.value.up.curve
+        nS = 'UP主近期粉丝趋势'
+      }
     } else if (activeTab.value === 'up') {
       dat = stats.value.up.curve
       nS = 'UP主近期粉丝趋势'
     } else if (activeTab.value === 'video' && videoDeepStats.value) {
-      // 视频深度分析显示评分雷达图数据
       nS = '视频数据趋势'
     } else if (activeTab.value === 'video') {
       dat = stats.value.video.curve
       nS = '推荐量波动区间'
     }
 
-    mainChart.setOption({
-      title: { show: false },
-      tooltip: {
-        trigger: 'axis',
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        borderColor: '#e3e5e7',
-        textStyle: { color: '#18191c' }
-      },
-      grid: { left: '3%', right: '4%', bottom: '5%', top: '15%', containLabel: true },
-      xAxis: {
-        type: 'category',
-        boundaryGap: false,
-        data: ['数日前', '较早点', '节点一', '三天前', '近两日', '现阶段'],
-        axisLine: { lineStyle: { color: '#e3e5e7' } }
-      },
-      yAxis: {
-        type: 'value',
-        axisLine: { show: false },
-        splitLine: { lineStyle: { color: '#e3e5e7', type: 'dashed' } }
-      },
-      series: [
+    if (seriesCfg.length === 0) {
+      seriesCfg = [
         {
           name: nS,
           type: 'line',
@@ -773,6 +793,35 @@ export function useDashboardView() {
           data: dat
         }
       ]
+    }
+
+    mainChart.setOption({
+      title: { show: false },
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        borderColor: '#e3e5e7',
+        textStyle: { color: '#18191c' }
+      },
+      legend: seriesCfg.length > 1 ? {
+        data: ['播放量', '点赞', '投币'],
+        top: 0,
+        textStyle: { color: 'var(--text-sub)' }
+      } : { show: false },
+      grid: { left: '3%', right: '4%', bottom: '5%', top: seriesCfg.length > 1 ? '12%' : '15%', containLabel: true },
+      xAxis: {
+        type: 'category',
+        boundaryGap: false,
+        data: xData,
+        axisLine: { lineStyle: { color: '#e3e5e7' } },
+        axisLabel: { show: seriesCfg.length <= 1 }
+      },
+      yAxis: {
+        type: 'value',
+        axisLine: { show: false },
+        splitLine: { lineStyle: { color: '#e3e5e7', type: 'dashed' } }
+      },
+      series: seriesCfg
     })
   }
 
