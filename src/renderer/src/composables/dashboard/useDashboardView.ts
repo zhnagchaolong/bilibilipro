@@ -11,10 +11,18 @@ export interface UpDeepAnalysis {
   face?: string // 头像
   sign?: string // 签名
   fans: number
+  following?: number
+  whisper?: number
+  black?: number
   totalLikes: number
   totalUpLikes?: number
   archiveCount?: number
   videoCount: number
+  archiveViews?: number
+  articleViews?: number
+  isVip?: boolean
+  verifyType?: number
+  verifyDesc?: string
   averages: {
     views: number
     likes: number
@@ -56,6 +64,48 @@ export interface UpDeepAnalysis {
   trendCurve: number[]
   trendLikes: number[]
   trendCoins: number[]
+  // 🌟 新增：投稿全景统计
+  navnum?: {
+    video: number
+    article: number
+    audio: number
+    album: number
+    opus: number
+    pugv: number
+    season: number
+  }
+  // 🌟 新增：充电数据
+  elec?: {
+    count: number
+    totalCount: number
+  }
+  // 🌟 新增：专栏列表
+  articles?: Array<{
+    id: number
+    title: string
+    summary: string
+    view: number
+    like: number
+    reply: number
+    publishTime: number
+  }>
+  // 🌟 新增：音频列表
+  audios?: Array<{
+    id: number
+    title: string
+    cover: string
+    duration: number
+    play: number
+    collect: number
+    comment: number
+  }>
+  // 🌟 新增：相簿统计
+  albumCount?: {
+    allCount: number
+    drawCount: number
+    photoCount: number
+    dailyCount: number
+  }
   aiAnalysis?: {
     summary: string
     strengths: string[]
@@ -463,11 +513,11 @@ export function useDashboardView() {
       triggerToast(
         `${r.error || (r.data?.error as string) || '未获取到数据，请检查网络或隐私设置'}`
       )
-      // 🌟 修复：清除加载状态，避免卡住
-      upDeepStats.value = null
-      videoDeepStats.value = null
-      videoCompareStats.value = null
-      trendsStats.value = null
+      // 🌟 修复：按类型精准清理，避免切 Tab 时连带清空其他分析结果
+      if (type === 'up' || type === 'up-deep-analysis') upDeepStats.value = null
+      if (type === 'video' || type === 'video-deep-analysis') videoDeepStats.value = null
+      if (type === 'video-compare') videoCompareStats.value = null
+      if (type === 'trends') trendsStats.value = null
       nextTick((): void => initChart())
       return
     }
@@ -731,6 +781,7 @@ export function useDashboardView() {
           {
             name: '播放量',
             type: 'line',
+            yAxisIndex: 0,
             smooth: 0.4,
             symbolSize: 4,
             itemStyle: { color: '#00aeee' },
@@ -740,6 +791,7 @@ export function useDashboardView() {
           {
             name: '点赞',
             type: 'line',
+            yAxisIndex: 1,
             smooth: 0.4,
             symbolSize: 4,
             itemStyle: { color: '#fb7299' },
@@ -749,6 +801,7 @@ export function useDashboardView() {
           {
             name: '投币',
             type: 'line',
+            yAxisIndex: 1,
             smooth: 0.4,
             symbolSize: 4,
             itemStyle: { color: '#f3a034' },
@@ -816,7 +869,22 @@ export function useDashboardView() {
         axisLine: { lineStyle: { color: '#e3e5e7' } },
         axisLabel: { show: seriesCfg.length <= 1 }
       },
-      yAxis: {
+      yAxis: seriesCfg.length > 1 && activeTab.value === 'up' ? [
+        {
+          type: 'value',
+          name: '播放量',
+          position: 'left',
+          axisLine: { show: false },
+          splitLine: { lineStyle: { color: '#e3e5e7', type: 'dashed' } }
+        },
+        {
+          type: 'value',
+          name: '互动数',
+          position: 'right',
+          axisLine: { show: false },
+          splitLine: { show: false }
+        }
+      ] : {
         type: 'value',
         axisLine: { show: false },
         splitLine: { lineStyle: { color: '#e3e5e7', type: 'dashed' } }

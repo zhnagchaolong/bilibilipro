@@ -290,6 +290,215 @@ async function fetchVideoStatsBatch(
   return result
 }
 
+// 🌟 获取UP主投稿数量统计
+async function fetchUpNavnum(
+  uid: string,
+  cookie: string
+): Promise<
+  | {
+      video: number
+      article: number
+      audio: number
+      album: number
+      opus: number
+      pugv: number
+      season: number
+    }
+  | undefined
+> {
+  try {
+    const res = await biliGetJson<{
+      code?: number
+      data?: {
+        video?: number
+        article?: number
+        audio?: number
+        album?: number
+        opus?: number
+        pugv?: number
+        season_num?: number
+      }
+    }>(`https://api.bilibili.com/x/space/navnum?mid=${uid}`, cookie, `https://space.bilibili.com/${uid}`)
+    if (res.code === 0 && res.data) {
+      const d = res.data
+      return {
+        video: d.video || 0,
+        article: d.article || 0,
+        audio: d.audio || 0,
+        album: d.album || 0,
+        opus: d.opus || 0,
+        pugv: d.pugv || 0,
+        season: d.season_num || 0
+      }
+    }
+  } catch (e) {
+    console.warn('[Dashboard] navnum 获取失败:', e)
+  }
+  return undefined
+}
+
+// 🌟 获取UP主充电公示数据
+async function fetchUpElec(
+  uid: string
+): Promise<{ count: number; totalCount: number } | undefined> {
+  try {
+    const res = await biliGetJson<{
+      code?: number
+      data?: { count?: number; total_count?: number }
+    }>(
+      `https://api.bilibili.com/x/ugcpay-rank/elec/month/up?up_mid=${uid}`,
+      '',
+      `https://space.bilibili.com/${uid}`
+    )
+    if (res.code === 0 && res.data) {
+      return {
+        count: res.data.count || 0,
+        totalCount: res.data.total_count || 0
+      }
+    }
+  } catch (e) {
+    console.warn('[Dashboard] elec 获取失败:', e)
+  }
+  return undefined
+}
+
+// 🌟 获取UP主专栏列表（最近5篇）
+async function fetchUpArticles(
+  uid: string,
+  cookie: string
+): Promise<
+  | Array<{
+      id: number
+      title: string
+      summary: string
+      view: number
+      like: number
+      reply: number
+      publishTime: number
+    }>
+  | undefined
+> {
+  try {
+    const res = await biliGetWbiJson<{
+      code?: number
+      data?: {
+        articles?: Array<{
+          id?: number
+          title?: string
+          summary?: string
+          view?: number
+          like?: number
+          reply?: number
+          publish_time?: number
+        }>
+      }
+    }>(
+      'https://api.bilibili.com/x/space/wbi/article',
+      { mid: uid, pn: 1, ps: 5, sort: 'publish_time' },
+      cookie,
+      `https://space.bilibili.com/${uid}`
+    )
+    if (res.code === 0 && res.data?.articles) {
+      return res.data.articles.slice(0, 5).map((a) => ({
+        id: a.id || 0,
+        title: a.title || '',
+        summary: a.summary || '',
+        view: a.view || 0,
+        like: a.like || 0,
+        reply: a.reply || 0,
+        publishTime: a.publish_time || 0
+      }))
+    }
+  } catch (e) {
+    console.warn('[Dashboard] articles 获取失败:', e)
+  }
+  return undefined
+}
+
+// 🌟 获取UP主音频列表（最近5条）
+async function fetchUpAudios(
+  uid: string
+): Promise<
+  | Array<{
+      id: number
+      title: string
+      cover: string
+      duration: number
+      play: number
+      collect: number
+      comment: number
+    }>
+  | undefined
+> {
+  try {
+    const res = await biliGetJson<{
+      code?: number
+      data?: {
+        data?: Array<{
+          id?: number
+          title?: string
+          cover?: string
+          duration?: number
+          statistic?: { play?: number; collect?: number; comment?: number }
+        }>
+      }
+    }>(
+      `https://api.bilibili.com/audio/music-service/web/song/upper?uid=${uid}&pn=1&ps=5&order=1`,
+      '',
+      `https://space.bilibili.com/${uid}`
+    )
+    if (res.code === 0 && res.data?.data) {
+      return res.data.data.slice(0, 5).map((a) => ({
+        id: a.id || 0,
+        title: a.title || '',
+        cover: a.cover || '',
+        duration: a.duration || 0,
+        play: a.statistic?.play || 0,
+        collect: a.statistic?.collect || 0,
+        comment: a.statistic?.comment || 0
+      }))
+    }
+  } catch (e) {
+    console.warn('[Dashboard] audios 获取失败:', e)
+  }
+  return undefined
+}
+
+// 🌟 获取UP主相簿统计
+async function fetchUpAlbumCount(
+  uid: string
+): Promise<
+  | { allCount: number; drawCount: number; photoCount: number; dailyCount: number }
+  | undefined
+> {
+  try {
+    const res = await biliGetJson<{
+      code?: number
+      data?: {
+        all_count?: number
+        draw_count?: number
+        photo_count?: number
+        daily_count?: number
+      }
+    }>(
+      `https://api.vc.bilibili.com/link_draw/v1/doc/upload_count?uid=${uid}`,
+      '',
+      `https://space.bilibili.com/${uid}`
+    )
+    if (res.code === 0 && res.data) {
+      return {
+        allCount: res.data.all_count || 0,
+        drawCount: res.data.draw_count || 0,
+        photoCount: res.data.photo_count || 0,
+        dailyCount: res.data.daily_count || 0
+      }
+    }
+  } catch (e) {
+    console.warn('[Dashboard] album count 获取失败:', e)
+  }
+  return undefined
+}
+
 export function setupDashboardIpc(): void {
   ipcMain.handle(
     'get-dashboard-data',
@@ -477,6 +686,8 @@ export function setupDashboardIpc(): void {
               data?: {
                 follower?: number
                 following?: number
+                whisper?: number
+                black?: number
               }
             }
 
@@ -538,7 +749,23 @@ export function setupDashboardIpc(): void {
               console.warn('[Dashboard] upstat 接口失败:', e)
             }
 
-            // 4. 获取最新 50 条视频（分两页，每页 25，降低风控）
+            // 💥 4. 并行获取额外数据（navnum/elec/article/audio/album），任一失败不影响主流程
+            const [navnumRes, elecRes, articlesRes, audiosRes, albumRes] = await Promise.allSettled([
+              fetchUpNavnum(uid, cookieString),
+              fetchUpElec(uid),
+              fetchUpArticles(uid, cookieString),
+              fetchUpAudios(uid),
+              fetchUpAlbumCount(uid)
+            ])
+            console.log('[Dashboard] 额外数据获取完成:', {
+              navnum: navnumRes.status,
+              elec: elecRes.status,
+              articles: articlesRes.status,
+              audios: audiosRes.status,
+              album: albumRes.status
+            })
+
+            // 5. 获取最新 50 条视频（分两页，每页 25，降低风控）
             let videos: VideoItem[] = []
             const cacheKey = `up-videos:${uid}`
             const cached = upVideoCache.get(cacheKey)
@@ -668,11 +895,19 @@ export function setupDashboardIpc(): void {
                   ...fallback,
                   fans: follower,
                   following,
+                  whisper: relationRes.data?.whisper ?? 0,
+                  black: relationRes.data?.black ?? 0,
                   likes: cardRes.data?.like_num || 0,
+                  totalUpLikes: upstatRes.data?.likes ?? 0,
                   archiveViews,
                   articleViews,
                   archiveCount: archiveCountFromCard,
                   videoCount: archiveCountFromCard,
+                  navnum: navnumRes.status === 'fulfilled' ? navnumRes.value : undefined,
+                  elec: elecRes.status === 'fulfilled' ? elecRes.value : undefined,
+                  articles: articlesRes.status === 'fulfilled' ? articlesRes.value : undefined,
+                  audios: audiosRes.status === 'fulfilled' ? audiosRes.value : undefined,
+                  albumCount: albumRes.status === 'fulfilled' ? albumRes.value : undefined,
                   fetchPartial: true,
                   fetchWarning: '基础信息已获取，但最新视频列表暂未获取成功'
                 }
@@ -697,11 +932,19 @@ export function setupDashboardIpc(): void {
                   ...fallback,
                   fans: follower,
                   following,
+                  whisper: relationRes.data?.whisper ?? 0,
+                  black: relationRes.data?.black ?? 0,
                   likes: cardRes.data?.like_num || 0,
+                  totalUpLikes: upstatRes.data?.likes ?? 0,
                   archiveViews,
                   articleViews,
                   archiveCount: archiveCountFromCard || videos.length,
                   videoCount: archiveCountFromCard || videos.length,
+                  navnum: navnumRes.status === 'fulfilled' ? navnumRes.value : undefined,
+                  elec: elecRes.status === 'fulfilled' ? elecRes.value : undefined,
+                  articles: articlesRes.status === 'fulfilled' ? articlesRes.value : undefined,
+                  audios: audiosRes.status === 'fulfilled' ? audiosRes.value : undefined,
+                  albumCount: albumRes.status === 'fulfilled' ? albumRes.value : undefined,
                   fetchPartial: true,
                   fetchWarning: `深度分析失败：${analysis.error}`
                 }
@@ -712,6 +955,8 @@ export function setupDashboardIpc(): void {
               ...analysis,
               fans: follower,
               following,
+              whisper: relationRes.data?.whisper ?? 0,
+              black: relationRes.data?.black ?? 0,
               likes: (analysis.totalLikes as number) || cardRes.data?.like_num || 0,
               totalUpLikes: upstatRes.data?.likes ?? 0,
               archiveCount: archiveCountFromCard,
@@ -722,7 +967,12 @@ export function setupDashboardIpc(): void {
               verifyType:
                 typeof card.official_verify?.type === 'number' ? card.official_verify.type : -1,
               liveStatus: false,
-              latestVideoCount: videos.length
+              latestVideoCount: videos.length,
+              navnum: navnumRes.status === 'fulfilled' ? navnumRes.value : undefined,
+              elec: elecRes.status === 'fulfilled' ? elecRes.value : undefined,
+              articles: articlesRes.status === 'fulfilled' ? articlesRes.value : undefined,
+              audios: audiosRes.status === 'fulfilled' ? audiosRes.value : undefined,
+              albumCount: albumRes.status === 'fulfilled' ? albumRes.value : undefined
             }
 
             console.log('[Dashboard] mergedAnalysis keys:', Object.keys(mergedAnalysis))

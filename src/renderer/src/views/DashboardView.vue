@@ -418,13 +418,22 @@ const {
                   referrerpolicy="no-referrer"
                 />
                 <div class="up-meta">
-                  <div class="up-name">{{ upDeepStats.name }}</div>
+                  <div class="up-name-row">
+                    <span class="up-name">{{ upDeepStats.name }}</span>
+                    <span v-if="upDeepStats.isVip" class="vip-badge">VIP</span>
+                    <span v-if="upDeepStats.verifyType === 0" class="verify-badge blue">📌 个人认证</span>
+                    <span v-else-if="upDeepStats.verifyType === 1" class="verify-badge yellow">📌 机构认证</span>
+                  </div>
+                  <div v-if="upDeepStats.verifyDesc" class="up-verify">{{ upDeepStats.verifyDesc }}</div>
                   <div v-if="upDeepStats.sign" class="up-sign">{{ upDeepStats.sign }}</div>
                   <div class="up-stats">
                     <span class="up-stat-item">👥 {{ formatNum(upDeepStats.fans) }} 粉丝</span>
-                    <span class="up-stat-item"
-                      >👍 {{ formatNum(upDeepStats.totalUpLikes || upDeepStats.totalLikes) }} 累计获赞</span
-                    >
+                    <span v-if="upDeepStats.following" class="up-stat-item">👀 {{ formatNum(upDeepStats.following) }} 关注</span>
+                    <span v-if="upDeepStats.whisper" class="up-stat-item">🤫 {{ formatNum(upDeepStats.whisper) }} 悄悄关注</span>
+                    <span v-if="upDeepStats.black" class="up-stat-item">🚫 {{ formatNum(upDeepStats.black) }} 黑名单</span>
+                    <span class="up-stat-item">👍 {{ formatNum(upDeepStats.totalUpLikes || upDeepStats.totalLikes) }} 累计获赞</span>
+                    <span v-if="upDeepStats.archiveViews" class="up-stat-item">▶️ {{ formatNum(upDeepStats.archiveViews) }} 视频总播放</span>
+                    <span v-if="upDeepStats.articleViews" class="up-stat-item">📰 {{ formatNum(upDeepStats.articleViews) }} 专栏总阅读</span>
                     <span class="up-stat-item">🎬 {{ upDeepStats.archiveCount || upDeepStats.videoCount }} 全部投稿</span>
                   </div>
                   <div class="up-hint">📊 以下深度分析基于最近 {{ upDeepStats.videoCount }} 个投稿视频</div>
@@ -459,6 +468,118 @@ const {
               <div class="ai-strategy">
                 <span class="label">📋 内容策略：</span>
                 <span class="value">{{ upDeepStats.aiAnalysis.contentStrategy }}</span>
+              </div>
+            </div>
+
+            <!-- 投稿全景统计 -->
+            <div v-if="upDeepStats.navnum" class="analysis-block">
+              <h4>📦 投稿全景统计</h4>
+              <div class="stats-master-grid">
+                <div class="stat-card">
+                  <div class="emoji">🎬</div>
+                  <div class="info">
+                    <div class="label">视频</div>
+                    <div class="value">{{ formatNum(upDeepStats.navnum.video) }}</div>
+                  </div>
+                </div>
+                <div class="stat-card">
+                  <div class="emoji">📰</div>
+                  <div class="info">
+                    <div class="label">专栏</div>
+                    <div class="value" :class="{ 'text-muted': upDeepStats.navnum.article === 0 }">{{ formatNum(upDeepStats.navnum.article) }}</div>
+                  </div>
+                </div>
+                <div class="stat-card">
+                  <div class="emoji">🎵</div>
+                  <div class="info">
+                    <div class="label">音频</div>
+                    <div class="value" :class="{ 'text-muted': upDeepStats.navnum.audio === 0 }">{{ formatNum(upDeepStats.navnum.audio) }}</div>
+                  </div>
+                </div>
+                <div class="stat-card">
+                  <div class="emoji">🖼️</div>
+                  <div class="info">
+                    <div class="label">相簿</div>
+                    <div class="value" :class="{ 'text-muted': upDeepStats.navnum.album === 0 }">{{ formatNum(upDeepStats.navnum.album) }}</div>
+                  </div>
+                </div>
+                <div class="stat-card">
+                  <div class="emoji">💬</div>
+                  <div class="info">
+                    <div class="label">动态</div>
+                    <div class="value" :class="{ 'text-muted': upDeepStats.navnum.opus === 0 }">{{ formatNum(upDeepStats.navnum.opus) }}</div>
+                  </div>
+                </div>
+                <div class="stat-card">
+                  <div class="emoji">📚</div>
+                  <div class="info">
+                    <div class="label">课程</div>
+                    <div class="value" :class="{ 'text-muted': upDeepStats.navnum.pugv === 0 }">{{ formatNum(upDeepStats.navnum.pugv) }}</div>
+                  </div>
+                </div>
+                <div class="stat-card">
+                  <div class="emoji">📁</div>
+                  <div class="info">
+                    <div class="label">合集</div>
+                    <div class="value" :class="{ 'text-muted': upDeepStats.navnum.season === 0 }">{{ formatNum(upDeepStats.navnum.season) }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 充电数据 -->
+            <div v-if="upDeepStats.elec && upDeepStats.elec.count > 0" class="analysis-block">
+              <h4>⚡ 充电公示</h4>
+              <div class="stats-master-grid">
+                <div class="stat-card">
+                  <div class="emoji">⚡</div>
+                  <div class="info">
+                    <div class="label">本月充电人数</div>
+                    <div class="value">{{ formatNum(upDeepStats.elec.count) }}</div>
+                  </div>
+                </div>
+                <div class="stat-card">
+                  <div class="emoji">🔋</div>
+                  <div class="info">
+                    <div class="label">累计充电次数</div>
+                    <div class="value">{{ formatNum(upDeepStats.elec.totalCount) }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 相簿统计 -->
+            <div v-if="upDeepStats.albumCount && upDeepStats.albumCount.allCount > 0" class="analysis-block">
+              <h4>🖼️ 相簿投稿统计</h4>
+              <div class="stats-master-grid">
+                <div class="stat-card">
+                  <div class="emoji">🎨</div>
+                  <div class="info">
+                    <div class="label">绘画</div>
+                    <div class="value">{{ formatNum(upDeepStats.albumCount.drawCount) }}</div>
+                  </div>
+                </div>
+                <div class="stat-card">
+                  <div class="emoji">📷</div>
+                  <div class="info">
+                    <div class="label">摄影</div>
+                    <div class="value">{{ formatNum(upDeepStats.albumCount.photoCount) }}</div>
+                  </div>
+                </div>
+                <div class="stat-card">
+                  <div class="emoji">🌅</div>
+                  <div class="info">
+                    <div class="label">日常</div>
+                    <div class="value">{{ formatNum(upDeepStats.albumCount.dailyCount) }}</div>
+                  </div>
+                </div>
+                <div class="stat-card">
+                  <div class="emoji">📊</div>
+                  <div class="info">
+                    <div class="label">相簿总数</div>
+                    <div class="value">{{ formatNum(upDeepStats.albumCount.allCount) }}</div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -575,6 +696,40 @@ const {
                 <div v-for="s in upDeepStats.series" :key="s.name" class="series-item">
                   <div class="series-name">{{ s.name }}</div>
                   <div class="series-count">{{ s.count }} 个视频</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 最近专栏 -->
+            <div v-if="upDeepStats.articles && upDeepStats.articles.length > 0" class="analysis-block">
+              <h4>📰 最近专栏 ({{ upDeepStats.articles.length }} 篇)</h4>
+              <div class="article-list">
+                <div v-for="article in upDeepStats.articles" :key="article.id" class="article-item">
+                  <div class="article-title" :title="article.title">{{ article.title }}</div>
+                  <div class="article-meta">
+                    <span>👁️ {{ formatNum(article.view) }}</span>
+                    <span>👍 {{ formatNum(article.like) }}</span>
+                    <span>💬 {{ formatNum(article.reply) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 最近音频 -->
+            <div v-if="upDeepStats.audios && upDeepStats.audios.length > 0" class="analysis-block">
+              <h4>🎵 最近音频 ({{ upDeepStats.audios.length }} 条)</h4>
+              <div class="audio-list">
+                <div v-for="audio in upDeepStats.audios" :key="audio.id" class="audio-item">
+                  <img v-if="audio.cover" :src="audio.cover" class="audio-cover" referrerpolicy="no-referrer" />
+                  <div class="audio-info">
+                    <div class="audio-title" :title="audio.title">{{ audio.title }}</div>
+                    <div class="audio-meta">
+                      <span>▶️ {{ formatNum(audio.play) }}</span>
+                      <span>⭐ {{ formatNum(audio.collect) }}</span>
+                      <span>💬 {{ formatNum(audio.comment) }}</span>
+                      <span>🕐 {{ formatMsTime(audio.duration) }}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2087,6 +2242,44 @@ const {
   padding: 4px 12px;
   border-radius: 12px;
 }
+.up-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.vip-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fb7299;
+  background: rgba(251, 114, 153, 0.1);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.verify-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.verify-badge.blue {
+  color: #00aeec;
+  background: rgba(0, 174, 236, 0.1);
+}
+.verify-badge.yellow {
+  color: #f3a034;
+  background: rgba(243, 160, 52, 0.1);
+}
+.up-verify {
+  font-size: 12px;
+  color: var(--primary-color);
+  margin-bottom: 6px;
+}
+.text-muted {
+  color: var(--text-sub);
+  opacity: 0.5;
+}
 .section-title {
   margin: 0 0 20px 0;
   font-size: 18px;
@@ -2150,6 +2343,82 @@ const {
   font-size: 11px;
   color: var(--primary-color);
   font-weight: 600;
+}
+
+/* 专栏列表 */
+.article-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.article-item {
+  background: var(--bg-color);
+  border-radius: 8px;
+  padding: 10px 14px;
+  transition: transform 0.2s;
+}
+.article-item:hover {
+  transform: translateX(4px);
+}
+.article-title {
+  font-size: 13px;
+  color: var(--text-main);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 6px;
+}
+.article-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--text-sub);
+}
+
+/* 音频列表 */
+.audio-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.audio-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-color);
+  border-radius: 8px;
+  padding: 8px 12px;
+  transition: transform 0.2s;
+}
+.audio-item:hover {
+  transform: translateX(4px);
+}
+.audio-cover {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.audio-info {
+  flex: 1;
+  min-width: 0;
+}
+.audio-title {
+  font-size: 13px;
+  color: var(--text-main);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+.audio-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-sub);
 }
 
 /* 分区标签 */
