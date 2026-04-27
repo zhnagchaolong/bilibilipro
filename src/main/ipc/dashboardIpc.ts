@@ -3,6 +3,7 @@ import { generateAIResponse } from './assistant'
 import axios from 'axios'
 import * as fs from 'fs'
 import * as path from 'path'
+import { createHash } from 'crypto'
 import { BiliAccount } from '../../shared/api.types'
 
 /**
@@ -61,6 +62,30 @@ interface VideoItem {
   tname?: string
 }
 
+interface SpaceArcRes {
+  code?: number
+  message?: string
+  msg?: string
+  data?: {
+    list?: {
+      vlist?: Array<{
+        bvid?: string
+        title?: string
+        pic?: string
+        length?: string
+        created?: number
+        typeid_name?: string
+        play?: number
+        video_review?: number
+        comment?: number
+      }>
+    }
+    page?: {
+      count?: number
+    }
+  }
+}
+
 // ==========================
 // 简易缓存与工具函数
 // ==========================
@@ -110,6 +135,81 @@ async function biliGetJson<T = unknown>(
   referer = 'https://www.bilibili.com/'
 ): Promise<T> {
   const res = await axios.get(url, {
+    headers: buildBiliHeaders(cookie, referer),
+    timeout: 15000,
+    validateStatus: () => true
+  })
+  return res.data as T
+}
+
+// ==================================
+// WBI 签名工具
+// ==================================
+
+const MIXIN_KEY_ENC_TAB = [
+  46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49,
+  33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13, 37, 48, 7, 16, 24, 55, 40,
+  61, 26, 17, 0, 1, 60, 51, 30, 4, 22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11,
+  36, 20, 34, 44, 52
+]
+
+let wbiKeyCache: { imgKey: string; subKey: string; expireAt: number } | null = null
+
+async function getWbiKeys(): Promise<{ imgKey: string; subKey: string }> {
+  if (wbiKeyCache && wbiKeyCache.expireAt > Date.now()) {
+    return { imgKey: wbiKeyCache.imgKey, subKey: wbiKeyCache.subKey }
+  }
+  try {
+    const res = await axios.get('https://api.bilibili.com/x/web-interface/nav', {
+      headers: buildBiliHeaders('', 'https://www.bilibili.com/'),
+      timeout: 10000,
+      validateStatus: () => true
+    })
+    const data = res.data?.data?.wbi_img
+    if (!data) throw new Error('无法获取 WBI 密钥')
+    const imgKey = data.img_url.split('/').pop()?.split('.')[0] || ''
+    const subKey = data.sub_url.split('/').pop()?.split('.')[0] || ''
+    wbiKeyCache = { imgKey, subKey, expireAt: Date.now() + 60 * 60 * 1000 }
+    return { imgKey, subKey }
+  } catch (e) {
+    console.error('[Dashboard] 获取 WBI 密钥失败:', e)
+    throw e
+  }
+}
+
+function getMixinKey(orig: string): string {
+  return MIXIN_KEY_ENC_TAB.map((i) => orig[i]).join('').slice(0, 32)
+}
+
+async function signWbi(params: Record<string, any>): Promise<Record<string, any>> {
+  const { imgKey, subKey } = await getWbiKeys()
+  const mixinKey = getMixinKey(imgKey + subKey)
+  const wts = Math.floor(Date.now() / 1000)
+  const chrFilter = /[!'()*]/g
+  const filtered: Record<string, string> = {}
+  for (const [k, v] of Object.entries(params)) {
+    filtered[k] = String(v).replace(chrFilter, '')
+  }
+  filtered.wts = String(wts)
+  const query = Object.keys(filtered)
+    .sort()
+    .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(filtered[k])}`)
+    .join('&')
+  const wRid = createHash('md5').update(query + mixinKey).digest('hex')
+  return { ...params, wts, w_rid: wRid }
+}
+
+async function biliGetWbiJson<T = unknown>(
+  baseUrl: string,
+  params: Record<string, any>,
+  cookie: string,
+  referer = 'https://www.bilibili.com/'
+): Promise<T> {
+  const signed = await signWbi({ ...params })
+  const query = Object.entries(signed)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&')
+  const res = await axios.get(`${baseUrl}?${query}`, {
     headers: buildBiliHeaders(cookie, referer),
     timeout: 15000,
     validateStatus: () => true
@@ -366,30 +466,6 @@ export function setupDashboardIpc(): void {
               }
             }
 
-            type SpaceArcRes = {
-              code?: number
-              message?: string
-              msg?: string
-              data?: {
-                list?: {
-                  vlist?: Array<{
-                    bvid?: string
-                    title?: string
-                    pic?: string
-                    length?: string
-                    created?: number
-                    typeid_name?: string
-                    play?: number
-                    video_review?: number
-                    comment?: number
-                  }>
-                }
-                page?: {
-                  count?: number
-                }
-              }
-            }
-
             // 1. 基础信息：统一用 axios，避免 session.fetch 的 invalid referrer 问题
             let cardRes: CardRes = {}
             let relationRes: RelationRes = {}
@@ -467,10 +543,23 @@ export function setupDashboardIpc(): void {
                     await sleep(getRandomDelay(1200, 2200))
                   }
 
-                  const spaceRes = await biliGetJson<SpaceArcRes>(
-                    `https://api.bilibili.com/x/space/arc/search?mid=${uid}&ps=25&tid=0&pn=${pn}&order=pubdate`,
+                  const spaceRes = await biliGetWbiJson<SpaceArcRes>(
+                    'https://api.bilibili.com/x/space/wbi/arc/search',
+                    {
+                      mid: uid,
+                      ps: 25,
+                      tid: 0,
+                      pn,
+                      order: 'pubdate',
+                      platform: 'web',
+                      web_location: '1550101',
+                      order_avoided: 'true',
+                      dm_img_list: '[]',
+                      dm_img_str: 'V2ViR0wgMS',
+                      dm_cover_img_str: 'SW50ZWwoUikgSEQgR3JhcGhpY3NJbnRlbA'
+                    },
                     cookieString,
-                    'https://space.bilibili.com/'
+                    `https://space.bilibili.com/${uid}`
                   )
 
                   console.log(
@@ -668,27 +757,35 @@ export function setupDashboardIpc(): void {
                 await new Promise((resolve) => setTimeout(resolve, delay))
               }
 
-              const spaceUrl = `https://api.bilibili.com/x/space/arc/search?mid=${mid}&ps=30&tid=0&pn=${pageCount}&order=pubdate`
-
-              const spaceRes = await axios.get(spaceUrl, {
-                headers: {
-                  'User-Agent': headers['User-Agent'],
-                  Referer: `https://space.bilibili.com/${mid}/video`,
-                  Origin: 'https://space.bilibili.com',
-                  Cookie: headers['Cookie'],
-                  'X-Requested-With': 'XMLHttpRequest'
+              const spaceRes = await biliGetWbiJson<SpaceArcRes>(
+                'https://api.bilibili.com/x/space/wbi/arc/search',
+                {
+                  mid,
+                  ps: 30,
+                  tid: 0,
+                  pn: pageCount,
+                  order: 'pubdate',
+                  platform: 'web',
+                  web_location: '1550101',
+                  order_avoided: 'true',
+                  dm_img_list: '[]',
+                  dm_img_str: 'V2ViR0wgMS',
+                  dm_cover_img_str: 'SW50ZWwoUikgSEQgR3JhcGhpY3NJbnRlbA'
                 },
-                timeout: 15000
-              })
+                headers['Cookie'] || '',
+                `https://space.bilibili.com/${mid}/video`
+              )
 
-              if (spaceRes.data?.code === 0 && spaceRes.data?.data?.list?.vlist?.length > 0) {
-                for (const item of spaceRes.data.data.list.vlist) {
+              const vlist = spaceRes.data?.list?.vlist
+              if (spaceRes.code === 0 && vlist && vlist.length > 0) {
+                for (const item of vlist) {
+                  if (!item.bvid) continue
                   upVideos.push({
                     bvid: item.bvid,
-                    title: item.title,
-                    pic: item.pic,
+                    title: item.title || '',
+                    pic: item.pic || '',
                     duration: parseDurationStr(item.length),
-                    pubdate: item.created,
+                    pubdate: item.created || 0,
                     tname: item.typeid_name || '未知',
                     stat: {
                       view: item.play || 0,
