@@ -1355,7 +1355,7 @@ function analyzeUpData(
     face: card?.card?.face || '', // 头像
     sign: card?.card?.sign || '', // 签名
     fans: card?.card?.fans || 0,
-    totalLikes: card?.like_num || 0,
+    totalLikes,
     videoCount: videos.length,
 
     averages: {
