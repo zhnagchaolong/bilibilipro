@@ -542,7 +542,7 @@ const {
 
             <!-- 爆款视频 -->
             <div v-if="upDeepStats.hotVideos?.length > 0" class="analysis-block">
-              <h4>🔥 爆款视频 (共 {{ upDeepStats.hotVideoCount }} 个)</h4>
+              <h4>🔥 爆款视频 (共 {{ upDeepStats.hotVideoCount }} 个) <span class="section-hint">(最近50个视频中的前5个高播放)</span></h4>
               <div class="hot-videos-grid">
                 <div
                   v-for="video in upDeepStats.hotVideos"

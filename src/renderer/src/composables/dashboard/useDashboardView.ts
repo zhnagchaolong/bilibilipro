@@ -337,8 +337,11 @@ export function useDashboardView() {
     triggerToast('🗑️ 已清除当前分析结果')
   }
 
-  const formatNum = (num: number): string =>
-    num >= 10000 ? (num / 10000).toFixed(2) + '万' : num.toString()
+  const formatNum = (num: number): string => {
+    if (num >= 10000) return (num / 10000).toFixed(2) + '万'
+    if (Number.isInteger(num)) return num.toString()
+    return num.toFixed(1)
+  }
 
   const formatMsTime = (sec: number): string => {
     if (!sec) return '00:00'

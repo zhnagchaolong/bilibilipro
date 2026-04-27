@@ -62,6 +62,28 @@ interface VideoItem {
   tname?: string
 }
 
+const BILI_PARTITION_MAP: Record<number, string> = {
+  1: '动画', 24: 'MAD·AMV', 25: 'MMD·3D', 27: '综合', 210: '番剧', 86: '特摄',
+  13: '番剧', 51: '资讯', 152: '官方延伸',
+  167: '国创', 153: '国产动画', 168: '国产原创相关', 169: '布袋戏', 195: '动态漫·广播剧',
+  3: '音乐', 28: '原创音乐', 31: '翻唱', 30: 'VOCALOID·UTAU', 59: '演奏', 193: 'MV', 29: '音乐现场', 130: '音乐综合',
+  129: '舞蹈', 20: '宅舞', 198: '街舞', 199: '明星舞蹈', 200: '中国舞', 154: '舞蹈综合',
+  4: '游戏', 17: '单机游戏', 171: '电子竞技', 172: '手机游戏', 65: '网络游戏', 173: '桌游棋牌', 121: 'GMV', 136: '音游', 19: 'Mugen',
+  36: '知识', 201: '科学科普', 124: '社科·法律·心理', 207: '人文历史', 208: '机械',
+  188: '科技', 95: '数码', 189: '软件应用', 190: '计算机技术', 191: '工业·工程·机械', 192: '极客DIY',
+  234: '运动', 156: '篮球',
+  223: '汽车', 176: '汽车生活', 224: '汽车文化', 225: '赛车', 226: '摩托车', 227: '智能出行',
+  160: '生活', 138: '搞笑', 250: '出行', 161: '日常', 163: '绘画', 239: '手工', 162: '其他',
+  211: '美食', 76: '美食制作', 212: '美食侦探', 213: '美食测评', 214: '田园美食', 215: '美食记录',
+  217: '动物圈', 218: '喵星人', 219: '汪星人', 220: '大熊猫', 221: '野生动物', 222: '爬宠', 75: '动物综合',
+  119: '鬼畜', 22: '鬼畜调教', 26: '音MAD', 126: '人力VOCALOID', 127: '鬼畜综合',
+  155: '时尚', 157: '美妆', 158: '服饰', 159: '配饰',
+  202: '资讯', 203: '热点', 204: '环球', 205: '社会',
+  5: '娱乐', 71: '综艺', 241: '娱乐杂谈', 242: '粉丝创作', 137: '明星综合',
+  181: '影视', 182: '影视杂谈', 183: '影视剪辑', 85: '短片', 184: '预告·资讯',
+  0: '未知'
+}
+
 interface SpaceArcRes {
   code?: number
   message?: string
@@ -74,6 +96,7 @@ interface SpaceArcRes {
         pic?: string
         length?: string
         created?: number
+        typeid?: number
         typeid_name?: string
         play?: number
         video_review?: number
@@ -529,6 +552,7 @@ export function setupDashboardIpc(): void {
                 pic?: string
                 length?: string
                 created?: number
+                typeid?: number
                 typeid_name?: string
                 play?: number
                 video_review?: number
@@ -588,7 +612,7 @@ export function setupDashboardIpc(): void {
                   pic: item.pic || '',
                   duration: parseDurationStr(item.length),
                   pubdate: item.created || 0,
-                  tname: item.typeid_name || '未知',
+                  tname: item.typeid_name || BILI_PARTITION_MAP[item.typeid || 0] || '未知',
                   stat: {
                     view: item.play || 0,
                     like: 0,
@@ -786,7 +810,7 @@ export function setupDashboardIpc(): void {
                     pic: item.pic || '',
                     duration: parseDurationStr(item.length),
                     pubdate: item.created || 0,
-                    tname: item.typeid_name || '未知',
+                    tname: item.typeid_name || BILI_PARTITION_MAP[item.typeid || 0] || '未知',
                     stat: {
                       view: item.play || 0,
                       like: 0,
@@ -1355,9 +1379,9 @@ function analyzeUpData(
 
     averages: {
       views: Math.round(totalViews / videos.length),
-      likes: Math.round(totalLikes / videos.length),
-      coins: Math.round(totalCoins / videos.length),
-      favorites: Math.round(totalFavorites / videos.length),
+      likes: Number((totalLikes / videos.length).toFixed(1)),
+      coins: Number((totalCoins / videos.length).toFixed(1)),
+      favorites: Number((totalFavorites / videos.length).toFixed(1)),
       engagementRate: (((totalLikes + totalCoins * 2 + totalFavorites) / totalViews) * 100).toFixed(
         2
       )
