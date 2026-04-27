@@ -1344,11 +1344,6 @@ function analyzeUpData(
   // 9. 系列视频识别 (相似标题)
   const series = identifySeries(videos)
 
-  // 平均数据辅助数组（互动数据只统计有实际值的避免被 0 拉低）
-  const likesArr = videos.map((v) => v.stat?.like || 0).filter((v) => v > 0)
-  const coinsArr = videos.map((v) => v.stat?.coin || 0).filter((v) => v > 0)
-  const favoritesArr = videos.map((v) => v.stat?.favorite || 0).filter((v) => v > 0)
-
   return {
     // 基础数据
     name: card?.card?.name || '',
@@ -1360,9 +1355,9 @@ function analyzeUpData(
 
     averages: {
       views: Math.round(totalViews / videos.length),
-      likes: likesArr.length ? Math.round(likesArr.reduce((a, b) => a + b, 0) / likesArr.length) : 0,
-      coins: coinsArr.length ? Math.round(coinsArr.reduce((a, b) => a + b, 0) / coinsArr.length) : 0,
-      favorites: favoritesArr.length ? Math.round(favoritesArr.reduce((a, b) => a + b, 0) / favoritesArr.length) : 0,
+      likes: Math.round(totalLikes / videos.length),
+      coins: Math.round(totalCoins / videos.length),
+      favorites: Math.round(totalFavorites / videos.length),
       engagementRate: (((totalLikes + totalCoins * 2 + totalFavorites) / totalViews) * 100).toFixed(
         2
       )

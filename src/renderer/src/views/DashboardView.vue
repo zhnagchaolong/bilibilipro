@@ -427,6 +427,7 @@ const {
                     >
                     <span class="up-stat-item">🎬 {{ upDeepStats.videoCount }} 视频</span>
                   </div>
+                  <div class="up-hint">📊 以下分析基于最近 {{ upDeepStats.videoCount }} 个投稿视频</div>
                 </div>
               </div>
             </div>
@@ -506,7 +507,7 @@ const {
 
             <!-- 平均数据表现 -->
             <div v-if="upDeepStats.averages" class="analysis-block">
-              <h4>📈 平均数据表现</h4>
+              <h4>📈 平均数据表现 <span class="section-hint">(最近 {{ upDeepStats.videoCount }} 个视频)</span></h4>
               <div class="stats-master-grid">
                 <div class="stat-card">
                   <div class="emoji">▶️</div>
@@ -1474,6 +1475,19 @@ const {
   font-size: 14px;
   color: var(--text-sub);
   font-weight: normal;
+}
+.up-hint {
+  font-size: 12px;
+  color: var(--text-sub);
+  opacity: 0.7;
+  margin-top: 6px;
+}
+.section-hint {
+  font-size: 12px;
+  color: var(--text-sub);
+  opacity: 0.7;
+  font-weight: normal;
+  margin-left: 6px;
 }
 .b-color {
   color: var(--primary-color);
