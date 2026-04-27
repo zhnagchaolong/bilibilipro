@@ -28,7 +28,7 @@ const {
   <div class="dashboard-view">
     <div class="page-header">
       <h2>📊 综合数据看板与行为报告</h2>
-      <p class="subtitle">深度且直观的个人资产、稿件数据转换分析及观看行为呈现。</p>
+      <p class="subtitle">深度且直观的个人资产、视频数据转换分析及观看行为呈现。</p>
     </div>
 
     <!-- 🌟 顶部分段控制器 -->
@@ -219,7 +219,7 @@ const {
             <div class="stat-card">
               <div class="emoji">🔥</div>
               <div class="info">
-                <div class="label">累计所有创作被点赞总数</div>
+                <div class="label">累计获赞总数</div>
                 <div class="value pop">{{ formatNum(stats.personal.likes) }} 赞</div>
               </div>
             </div>
@@ -266,19 +266,19 @@ const {
             <div class="stat-card bg-hint">
               <div class="emoji">💖</div>
               <div class="info">
-                <div class="label">所有稿件被赞总数</div>
+                <div class="label">最近{{ stats.up.latestVideoCount || 50 }}个视频获赞总数</div>
                 <div class="value p-color">{{ formatNum(stats.up.likes) }}</div>
               </div>
             </div>
             <div class="stat-card">
               <div class="emoji">📦</div>
               <div class="info">
-                <div class="label">每篇稿件平均获赞基数</div>
+                <div class="label">视频平均点赞</div>
                 <div class="value">
                   {{
-                    stats.up.archiveCount ? (stats.up.likes / stats.up.archiveCount).toFixed(1) : 0
+                    stats.up.latestVideoCount ? (stats.up.likes / stats.up.latestVideoCount).toFixed(1) : 0
                   }}
-                  赞/稿件
+                  赞/视频
                 </div>
               </div>
             </div>
@@ -335,14 +335,14 @@ const {
             <div class="stat-card bg-hint">
               <div class="emoji">▶️</div>
               <div class="info">
-                <div class="label">该稿件已在全网累计播放总数</div>
+                <div class="label">该视频已在全网累计播放总数</div>
                 <div class="value primary-col">{{ formatNum(stats.video.views) }} 次观看</div>
               </div>
             </div>
             <div class="stat-card">
               <div class="emoji">💬</div>
               <div class="info">
-                <div class="label">该稿件当前弹幕互动热流量</div>
+                <div class="label">该视频当前弹幕互动热流量</div>
                 <div class="value">共计 {{ formatNum(stats.video.danmaku) }} 条弹幕</div>
               </div>
             </div>
